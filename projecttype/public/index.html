@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Library</title>
+    <link rel="stylesheet" href="app.css" />
+</head>
+
+<body>
+    <header>
+        <h1>Library</h1>
+    </header>
+
+    <main>
+        <section class="form-section">
+            <h2>Add Book</h2>
+            <form id="add-book-form">
+                <label for="author_id">Author ID:</label>
+                <input type="number" id="author_id" name="author_id" required />
+                <label for="title">Title:</label>
+                <input type="text" id="title" name="title" required />
+                <button type="submit">Add Book</button>
+            </form>
+        </section>
+
+        <section class="book-list form-section">
+            <h2>Books</h2>
+            <p id="total-books">Total books found: 0</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Author ID</th>
+                        <th>Title</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="book-table-body"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Library System</p>
+    </footer>
+
+    <script>
+        async function fetchBooks() {
+            try {
+                const res = await fetch('/books');
+                const books = await res.json();
+
+                const tbody = document.getElementById('book-table-body');
+                const total = document.getElementById('total-books');
+                tbody.innerHTML = '';
+
+                books.forEach(book => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+            <td>${book.book_id}</td>
+            <td>${book.author_id}</td>
+            <td class="book-title">${book.title}</td>
+            <td>
+              <button type="button" class="edit-btn">Edit</button>
+              <button type="button" class="delete-btn" data-id="${book.book_id}">Delete</button>
+            </td>
+          `;
+                    tbody.appendChild(tr);
+                });
+
+                total.textContent = `Total books found: ${books.length}`;
+            } catch (err) {
+                console.error('Error', err);
+            }
+        }
+
+        async function handleAddBook(event) {
+            event.preventDefault();
+            const authorId = parseInt(document.getElementById('author_id').value);
+            const title = document.getElementById('title').value.trim();
+
+            if (!authorId || !title) return;
+
+            try {
+                const res = await fetch('/books', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ author_id: authorId, title }),
+                });
+                if (res.ok) {
+                    document.getElementById('author_id').value = '';
+                    document.getElementById('title').value = '';
+                    fetchBooks();
+                }
+            } catch (err) {
+                console.error('Error', err);
+            }
+        }
+
+        document.getElementById('book-table-body').addEventListener('click', async event => {
+            const target = event.target;
+
+            if (target.classList.contains('delete-btn')) {
+                const bookId = target.getAttribute('data-id');
+                const res = await fetch(`/books/${bookId}`, { method: 'DELETE' });
+                if (res.ok) fetchBooks();
+                else alert('');
+            }
+
+            if (target.classList.contains('edit-btn')) {
+                const row = target.closest('tr');
+                const titleCell = row.querySelector('.book-title');
+                const oldTitle = titleCell.textContent;
+                const bookId = row.children[0].textContent;
+
+                titleCell.innerHTML = `<input type="text" id="edit-title-${bookId}" value="${oldTitle}" />`;
+
+                target.textContent = 'Save';
+                target.classList.remove('edit-btn');
+                target.classList.add('save-btn');
+            } else if (target.classList.contains('save-btn')) {
+                const row = target.closest('tr');
+                const bookId = row.children[0].textContent;
+                const input = document.getElementById(`edit-title-${bookId}`);
+                const newTitle = input.value.trim();
+
+                if (!newTitle) {
+                    alert('');
+                    return;
+                }
+
+                const res = await fetch(`/books/${bookId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle }),
+                });
+
+                if (res.ok) {
+                    const titleCell = row.querySelector('.book-title');
+                    titleCell.textContent = newTitle;
+
+                    target.textContent = 'Edit';
+                    target.classList.remove('save-btn');
+                    target.classList.add('edit-btn');
+                } else {
+                    alert('');
+                }
+            }
+        });
+
+        document.getElementById('add-book-form').addEventListener('submit', handleAddBook);
+        window.addEventListener('DOMContentLoaded', fetchBooks);
+    </script>
+</body>
+
+</html>
